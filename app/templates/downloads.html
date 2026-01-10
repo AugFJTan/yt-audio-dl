@@ -1,0 +1,5 @@
+<ul id="downloads">
+  {% for download in downloads %}
+    <li><a href="{{ download.path }}" download>{{ download.filename }}</a></li>
+  {% endfor %}
+</ul>

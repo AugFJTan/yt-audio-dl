@@ -1,0 +1,45 @@
+<!doctype html>
+<html>
+  <head>
+    <title>YT Audio Downloader</title>
+    <style>
+      textarea {
+        resize: none;
+      }
+    </style>
+    {{ turbo() }}
+  </head>
+  <body>
+    <h1>YT Audio Downloader</h1>
+    <form name="url-submit" method="post">
+      <label for="yt-url">URL:</label>
+      <input type="text" id="yt-url" name="yt-url">
+      {% include "submit_button.html" %}
+    </form>
+    {% include "log.html" %}
+    {% include "downloads.html" %}
+    <script type="text/javascript">
+      // Credit: https://stackoverflow.com/questions/71285841/submit-flask-form-without-re-rendering-the-page
+      (uri => {
+        const form = document.querySelector('form[name="url-submit"]');
+        form.addEventListener('submit', event => {
+          event.preventDefault();
+          fetch(uri, {
+            method: 'post',
+            body: new FormData(event.target)
+          }).then(resp => resp.json())
+            .then(data => {
+              console.log(data);
+            });
+        });
+      })({{ url_for('submit') | tojson }});
+
+      const observer = new MutationObserver(() => {
+        const log = document.getElementById("log");
+        log.scrollTop = log.scrollHeight;
+      });
+
+      observer.observe(document.body, { childList: true, subtree: true, characterData: true });
+    </script>
+  </body>
+</html>

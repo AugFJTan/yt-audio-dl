@@ -1,0 +1,12 @@
+services:
+  app:
+    container_name: yt-audio-dl-app
+    image: <Your Image Name>
+    environment:
+      TZ: "<Your Timezone>"
+    volumes:
+      - ./app:/app
+    ports:
+      - 5000:5000
+    stop_signal: SIGINT
+    restart: unless-stopped
