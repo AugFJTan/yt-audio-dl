@@ -59,7 +59,7 @@ secret_key=<MY_SUPER_SECRET_KEY>
 
 # Usage
 
-1. In a web browser, open `http:<localhost or IP address>:5000`.
+1. In a web browser, open `http://<localhost or IP address>:5000`.
 
 2. Enter a YouTube video or playlist URL and click on the "Submit" button.
 
