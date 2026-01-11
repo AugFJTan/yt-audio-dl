@@ -1,6 +1,7 @@
 from flask import Flask, render_template, request, session, jsonify, copy_current_request_context
 from turbo_flask import Turbo
 from dotenv import load_dotenv
+from pathlib import Path
 import yt_dlp
 import os
 import re
@@ -10,6 +11,12 @@ turbo = Turbo(app)
 
 load_dotenv()
 app.secret_key = os.environ.get('secret_key')
+
+
+@turbo.user_id
+def get_user_id():
+    with app.app_context():
+        return session['id']
 
 
 @app.context_processor
@@ -29,10 +36,10 @@ def inject_downloads():
 
 def turbo_update(element):
     with app.app_context():
-        turbo.push(turbo.replace(render_template(f'{element}.html'), element))
+        turbo.push(turbo.replace(render_template(f'{element}.html'), element),
+                   to=session['id'])
 
 
-# TODO: Update for one user only
 # TODO: Check for invalid data
 # TODO: Delete leftover files on startup
 # TODO: Create temp folder and schedule deletion after 15 minutes
@@ -65,15 +72,18 @@ def submit():
 
     def filename_hook(d):
         if d['status'] == 'finished':
-            download_path = os.path.splitext(d['filename'])[0] + '.mp3'
+            download_path = str(Path(d['filename']).with_suffix('.mp3'))
             download = {
                 "path": download_path,
                 "filename": os.path.basename(download_path)
             }
             session['downloads'].append(download)
 
+    session_dir = f"static/{session['id']}/"
+    Path(session_dir).mkdir(exist_ok=True)
+
     ydl_opts = {
-        'outtmpl': 'static/%(uploader)s - %(title)s.%(ext)s',
+        'outtmpl': session_dir + '%(uploader)s - %(title)s.%(ext)s',
         'format': 'mp3/bestaudio/best',
         'postprocessors': [{
             'key': 'FFmpegExtractAudio',
@@ -104,6 +114,7 @@ def submit():
 @app.route('/')
 def index():
     if 'log' not in session:
+        session['id'] = turbo.default_user_id()
         session['log'] = []
         session['disabled'] = ''
         session['downloads'] = []
