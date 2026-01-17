@@ -26,7 +26,7 @@ def inject_log():
 
 @app.context_processor
 def inject_submit_button():
-    return dict(disabled=session['disabled'])
+    return dict(disabled_attr=session['disabled_attr'])
 
 
 @app.context_processor
@@ -41,10 +41,13 @@ def turbo_update(element):
 
 
 # TODO: Check for invalid data
-# TODO: Delete leftover files on startup
-# TODO: Create temp folder and schedule deletion after 15 minutes
-# TODO: Allow user to manually delete mp3
+# TODO: Delete mp3 after session end
+# TODO: Handle client reconnection
+# TODO: Add logging
 # TODO: Update GUI, make it mobile-friendly
+# TODO: Add Sponsorblock
+# TODO: Sanitize filename - may have to change underscore back to space
+# TODO: Add download archive check
 
 progress_rgx = re.compile(r"^\[download\]\s+[0-9]+(\.[0-9]+)?% of.*$")
 
@@ -72,10 +75,10 @@ def submit():
 
     def filename_hook(d):
         if d['status'] == 'finished':
-            download_path = str(Path(d['filename']).with_suffix('.mp3'))
+            download_path = Path(d['filename']).with_suffix('.mp3')
             download = {
-                "path": download_path,
-                "filename": os.path.basename(download_path)
+                "path": str(download_path),
+                "filename": download_path.name
             }
             session['downloads'].append(download)
 
@@ -93,7 +96,7 @@ def submit():
         'progress_hooks': [filename_hook]
     }
 
-    session['disabled'] = 'disabled'
+    session['disabled_attr'] = 'disabled'
     turbo_update('submit_button')
 
     try:
@@ -105,7 +108,7 @@ def submit():
 
     turbo_update('downloads')
 
-    session['disabled'] = ''
+    session['disabled_attr'] = ''
     turbo_update('submit_button')
 
     return jsonify(message='success')
@@ -113,9 +116,9 @@ def submit():
 
 @app.route('/')
 def index():
-    if 'log' not in session:
+    if 'id' not in session:
         session['id'] = turbo.default_user_id()
         session['log'] = []
-        session['disabled'] = ''
+        session['disabled_attr'] = ''
         session['downloads'] = []
     return render_template('index.html')
