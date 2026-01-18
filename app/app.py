@@ -1,67 +1,34 @@
 from flask import Flask, render_template, request, session, jsonify, copy_current_request_context
-from turbo_flask import Turbo
+from flask_socketio import SocketIO, emit
 from dotenv import load_dotenv
 from pathlib import Path
 import yt_dlp
 import os
-import re
+import uuid
+import threading
+import shutil
 
 app = Flask(__name__)
-turbo = Turbo(app)
+socketio = SocketIO(app)
 
 load_dotenv()
 app.secret_key = os.environ.get('secret_key')
 
-
-@turbo.user_id
-def get_user_id():
-    with app.app_context():
-        return session['id']
-
-
-@app.context_processor
-def inject_log():
-    return dict(log='\n'.join(session['log']))
-
-
-@app.context_processor
-def inject_submit_button():
-    return dict(disabled_attr=session['disabled_attr'])
-
-
-@app.context_processor
-def inject_downloads():
-    return dict(downloads=session['downloads'])
-
-
-def turbo_update(element):
-    with app.app_context():
-        turbo.push(turbo.replace(render_template(f'{element}.html'), element),
-                   to=session['id'])
-
+session_record = set()
 
 # TODO: Check for invalid data
-# TODO: Delete mp3 after session end
-# TODO: Handle client reconnection
 # TODO: Add logging
 # TODO: Update GUI, make it mobile-friendly
 # TODO: Add Sponsorblock
 # TODO: Sanitize filename - may have to change underscore back to space
 # TODO: Add download archive check
 
-progress_rgx = re.compile(r"^\[download\]\s+[0-9]+(\.[0-9]+)?% of.*$")
+@socketio.on('submit')
+def submit(url):
+    downloads = []
 
-@app.route('/submit', methods=['POST'])
-def submit():
     def yt_dlp_log(msg):
-        overwrite_progress = False
-        if progress_rgx.match(msg):
-            if progress_rgx.match(session['log'][-1]):
-                session['log'][-1] = msg
-                overwrite_progress = True
-        if not overwrite_progress:
-            session['log'].append(msg)
-        turbo_update('log')
+        emit('log', msg)
 
     class WebLogger:
         def debug(self, msg):
@@ -77,13 +44,15 @@ def submit():
         if d['status'] == 'finished':
             download_path = Path(d['filename']).with_suffix('.mp3')
             download = {
-                "path": str(download_path),
-                "filename": download_path.name
+                'path': str(download_path),
+                'filename': download_path.name
             }
-            session['downloads'].append(download)
+            downloads.append(download)
 
-    session_dir = f"static/{session['id']}/"
-    Path(session_dir).mkdir(exist_ok=True)
+    sid = session['id']
+
+    session_dir = f'static/{sid}/'
+    Path(session_dir).mkdir(parents=True, exist_ok=True)
 
     ydl_opts = {
         'outtmpl': session_dir + '%(uploader)s - %(title)s.%(ext)s',
@@ -93,32 +62,62 @@ def submit():
             'preferredcodec': 'mp3',
         }],
         'logger': WebLogger(),
+        'color': {
+            'stdout': 'no_color',
+            'stderr': 'no_color'
+        },
         'progress_hooks': [filename_hook]
     }
 
-    session['disabled_attr'] = 'disabled'
-    turbo_update('submit_button')
-
     try:
-        URLS = [request.form['yt-url']]
+        URLS = [url]
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             error_code = ydl.download(URLS)
     except:
         pass
 
-    turbo_update('downloads')
+    emit('list_downloads', downloads)
 
-    session['disabled_attr'] = ''
-    turbo_update('submit_button')
+    if len(downloads) > 0 and sid not in session_record:
+        session_record.add(sid)
+        # Keep files for 15 minutes
+        t = threading.Timer(15 * 60, delete_session_files, [sid])
+        t.start()
 
-    return jsonify(message='success')
+
+def delete_session_files(sid):
+    print(f'Deleting files from session {sid}')
+    session_dir = f'static/{sid}/'
+    shutil.rmtree(session_dir, ignore_errors=True)
+    session_record.remove(sid)
+
+
+@socketio.on('get_session_id_resp')
+def client_get_session_id(sid):
+    if not sid:
+        sid = uuid.uuid4().hex
+        print(f'Creating new session {sid}')
+    else:
+        print(f'Got existing session {sid}')
+    session['id'] = sid
+    emit('set_session_id', sid)
+
+
+@socketio.on('connect')
+def client_connect():
+    print('Connect event')
+    emit('get_session_id')
+
+
+@socketio.on('disconnect')
+def client_disconnect(reason):
+    print('Client disconnected, reason:', reason)
 
 
 @app.route('/')
 def index():
-    if 'id' not in session:
-        session['id'] = turbo.default_user_id()
-        session['log'] = []
-        session['disabled_attr'] = ''
-        session['downloads'] = []
     return render_template('index.html')
+
+
+if __name__ == '__main__':
+    socketio.run(app, host='0.0.0.0', port=5000)
