@@ -20,7 +20,6 @@ session_record = set()
 # TODO: Add logging
 # TODO: Update GUI, make it mobile-friendly
 # TODO: Add Sponsorblock
-# TODO: Sanitize filename - may have to change underscore back to space
 # TODO: Add download archive check
 
 @socketio.on('submit')
@@ -44,7 +43,7 @@ def submit(url):
         if d['status'] == 'finished':
             download_path = Path(d['filename']).with_suffix('.mp3')
             download = {
-                'path': str(download_path),
+                'path': str(download_path.parent),
                 'filename': download_path.name
             }
             downloads.append(download)
@@ -56,11 +55,20 @@ def submit(url):
 
     ydl_opts = {
         'outtmpl': session_dir + '%(uploader)s - %(title)s.%(ext)s',
+        'windowsfilenames': True,
         'format': 'mp3/bestaudio/best',
-        'postprocessors': [{
-            'key': 'FFmpegExtractAudio',
-            'preferredcodec': 'mp3',
-        }],
+        'postprocessors': [
+            {
+                'key': 'FFmpegExtractAudio',
+                'preferredcodec': 'mp3',
+            },
+            {
+                'key': 'FFmpegMetadata',
+                'add_chapters': True,
+                'add_infojson': 'if_exists',
+                'add_metadata': True,
+            },
+        ],
         'logger': WebLogger(),
         'color': {
             'stdout': 'no_color',
@@ -120,4 +128,4 @@ def index():
 
 
 if __name__ == '__main__':
-    socketio.run(app, host='0.0.0.0', port=5000)
+    socketio.run(app, host='0.0.0.0', port=5000, allow_unsafe_werkzeug=True)

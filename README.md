@@ -45,7 +45,7 @@ secret_key=<MY_SUPER_SECRET_KEY>
 2. Install Python dependencies:
 
     ```sh
-    pip3 install Turbo-Flask yt-dlp[default] python-dotenv
+    pip3 install flask-socketio yt-dlp[default] python-dotenv
     ```
 
     **Tip:** Install the Python dependencies in a [virtual environment](https://docs.python.org/3/library/venv.html).

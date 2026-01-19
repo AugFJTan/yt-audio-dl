@@ -89,7 +89,7 @@
 
         links.forEach((link) => {
           const download_link = document.createElement('a');
-          download_link.setAttribute('href', link.path);
+          download_link.setAttribute('href', link.path + '/' + encodeURIComponent(link.filename));
           download_link.setAttribute('download', '');
           download_link.innerText = link.filename;
 

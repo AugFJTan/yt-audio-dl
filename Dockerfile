@@ -6,7 +6,7 @@ RUN apt update && \
     apt install -y wget xz-utils unzip && \
     apt clean
 
-RUN pip3 install Turbo-Flask yt-dlp[default] python-dotenv
+RUN pip3 install flask-socketio yt-dlp[default] python-dotenv
 
 # Credit: https://github.com/Jeeaaasus/youtube-dl/blob/master/Dockerfile
 RUN wget -q 'https://github.com/yt-dlp/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-linux64-gpl.tar.xz' -O - | tar -xJ -C /tmp/ --one-top-level=ffmpeg && \
@@ -18,10 +18,10 @@ RUN wget -q 'https://github.com/yt-dlp/FFmpeg-Builds/releases/download/latest/ff
 
 RUN wget -q "https://github.com/denoland/deno/releases/latest/download/deno-x86_64-unknown-linux-gnu.zip" -O /tmp/deno.zip && \
     unzip /tmp/deno.zip -d /tmp/deno/ && \
-    chmod -R a+x /tmp/deno/* && \\
+    chmod -R a+x /tmp/deno/* && \
     mv $(find /tmp/deno/* -name deno) /usr/local/bin/ && \
     rm -rf /tmp/*
 
 EXPOSE 5000
 
-ENTRYPOINT FLASK_APP=/app/app.py flask run --host=0.0.0.0
+ENTRYPOINT ["python3", "app.py"]
