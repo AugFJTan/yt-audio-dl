@@ -54,7 +54,7 @@ secret_key=<MY_SUPER_SECRET_KEY>
 
     ```sh
     cd app/
-    flask run --host=0.0.0.0
+    python3 app.py
     ```
 
 # Usage
