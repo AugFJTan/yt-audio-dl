@@ -2,104 +2,51 @@
 <html>
   <head>
     <title>YT Audio Downloader</title>
-    <style>
-      textarea {
-        resize: none;
-      }
-    </style>
+    <link rel= "stylesheet" type= "text/css" href= "{{ url_for('static', filename='css/style.css') }}">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.8.1/socket.io.min.js" integrity="sha512-8ExARjWWkIllMlNzVg7JKq9RKWPlJABQUNq6YvAjE/HobctjH/NA+bSiDMDvouBVjp4Wwnf1VP1OEv7Zgjtuxw==" crossorigin="anonymous"></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=0.75, user-scalable=0">
+    <meta charset="utf-8">
   </head>
   <body>
-    <h1>YT Audio Downloader</h1>
-    <p id="status"></p>
-    <form id="url-submit">
-      <label for="yt-url">URL:</label>
-      <input type="text" id="yt-url" name="yt-url">
-      <button id="submit_button" type="submit">Submit</button>
-    </form>
-    <textarea
-      id="log"
-      name="log"
-      rows="30"
-      cols="120"
-      readonly></textarea>
-    <ul id="downloads">
-    </ul>
-    <script type="text/javascript">
-      const socket = io();
-
-      socket.on('connect', () => {
-        const status = document.getElementById('status');
-        status.innerText = 'Status: Connected';
-      });
-
-      socket.on('disconnect', () => {
-        const status = document.getElementById('status');
-        status.innerText = 'Status: Reconnecting';
-      })
-
-      socket.on('get_session_id', () => {
-        let session_id = null;
-        if (sessionStorage.getItem('session_id')) {
-          session_id = sessionStorage.getItem('session_id');
-        }
-        socket.emit('get_session_id_resp', session_id);
-      });
-
-      socket.on('set_session_id', (session_id) => {
-        sessionStorage.setItem('session_id', session_id);
-      });
-
-      const form = document.getElementById('url-submit');
-      const textinput = document.getElementById('yt-url');
-      form.addEventListener('submit', (event) => {
-        event.preventDefault();
-        socket.emit('submit', textinput.value);
-        const submit_button = document.getElementById('submit_button');
-        submit_button.disabled = true;
-      });
-
-      socket.on('log', (msg) => {
-        const log = document.getElementById('log');
-        if (log.value === '') {
-          log.value = msg;
-          return;
-        }
-
-        const progress_rgx = /^\[download\]\s+[0-9]+(\.[0-9]+)?% of.*$/;
-        let lines = log.value.split('\n');
-        let overwrite_progress = false;
-        if (msg.match(progress_rgx)) {
-          if (lines[lines.length-1].match(progress_rgx)) {
-            lines[lines.length-1] = msg;
-            overwrite_progress = true;
-          }
-        }
-        if (!overwrite_progress) {
-          lines.push(msg);
-        }
-
-        log.value = lines.join('\n');
-        log.scrollTop = log.scrollHeight;
-      });
-
-      socket.on('list_downloads', (links) => {
-        const submit_button = document.getElementById('submit_button');
-        submit_button.disabled = false;
-
-        links.forEach((link) => {
-          const download_link = document.createElement('a');
-          download_link.setAttribute('href', link.path + '/' + encodeURIComponent(link.filename));
-          download_link.setAttribute('download', '');
-          download_link.innerText = link.filename;
-
-          const download_item = document.createElement('li');
-          download_item.appendChild(download_link);
-
-          const downloads = document.getElementById('downloads');
-          downloads.appendChild(download_item);
-        });
-      });
-    </script>
+    <div class="page-centre app-width">
+      <h1>YT Audio Downloader</h1>
+      <p id="status">🟡 Connecting</p>
+      <a id="help" href="#" onclick="showHelp(); return false;">Help</a>
+      <form id="url-submit">
+        <input class="top-space textbox-input-font-size textbox-input-width" type="text" id="yt-url" name="yt-url" placeholder="https://www.youtube.com/watch?v=..." />
+        <fieldset class="top-space options">
+          <legend>Options:</legend>
+          <div class="checkbox-bottom-pad">
+            <input type="checkbox" id="metadata" name="metadata" onclick="updateMetadataCheckbox(this)" />
+            <label for="metadata">Embed metadata</label>
+          </div>
+          <div class="checkbox-bottom-pad">
+            <input type="checkbox" id="thumbnail" name="thumbnail" onclick="updateThumbnailCheckbox(this)" />
+            <label for="thumbnail">Embed thumbnail</label>
+          </div>
+          <div>
+            <input type="checkbox" id="sponsorblock" name="sponsorblock" onclick="updateSponsorBlockCheckbox(this)" />
+            <label for="sponsorblock">Use SponsorBlock</label>
+          </div>
+        </fieldset>
+        <button class="top-space" id="submit-button" type="submit">Submit</button>
+      </form>
+      <textarea class="top-space textarea-width" id="log" rows="20" readonly></textarea>
+      <p id="downloads-title" class="top-space">No downloads yet.</p>
+      <ul id="downloads">
+      </ul>
+      <div id="overlay">
+        <p id="close-button" onclick="hideHelp(); return false;">✖</p>
+        <p><span class="overlay-title">YT Audio Downloader</span><br><i>v1.0.0-beta</i></p>
+        <p class="overlay-space"><b>How to Use:</b></p>
+        <p>To get started, copy and paste a YouTube video or playlist link into the textbox and hit “Submit”. If the link is for a single video, only one MP3 file will be extracted. If the link is for a playlist, multiple MP3 files will be extracted, one for each video.</p>
+        <p>Links to download the extracted MP3 files will appear at the bottom of the page. These links will be valid for 15 minutes, after which the files are automatically deleted.</p>
+        <p class="overlay-space"><b>Options:</b></p>
+        <p><b>Embed metadata</b> - Embed metadata into the MP3 file including title, uploader and description.</p>
+        <p><b>Embed thumbnail</b> - Embed a thumbnail into the MP3 file using the thumbnail of the original video.</p>
+        <p><b>Use SponsorBlock</b> - Use <a href="https://sponsor.ajay.app/" target="_blank">SponsorBlock</a> to remove sponsor segments, self-promotions, intros, outros and more from the MP3 file.</p>
+      </div>
+    </div>
+    <script type="text/javascript" src="{{ url_for('static', filename='js/main.js') }}"></script>
   </body>
 </html>

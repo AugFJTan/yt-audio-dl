@@ -16,9 +16,9 @@ app.secret_key = os.environ.get('secret_key')
 
 session_record = set()
 
+# TODO: Restore client state on page refresh
 # TODO: Check for invalid data
 # TODO: Add logging
-# TODO: Update GUI, make it mobile-friendly
 # TODO: Add Sponsorblock
 # TODO: Add download archive check
 
@@ -50,9 +50,10 @@ def submit(url):
 
     sid = session['id']
 
-    session_dir = f'static/{sid}/'
+    session_dir = f'static/temp/{sid}/'
     Path(session_dir).mkdir(parents=True, exist_ok=True)
 
+    # TODO: Handle options in another file
     ydl_opts = {
         'outtmpl': session_dir + '%(uploader)s - %(title)s.%(ext)s',
         'windowsfilenames': True,
@@ -95,7 +96,7 @@ def submit(url):
 
 def delete_session_files(sid):
     print(f'Deleting files from session {sid}')
-    session_dir = f'static/{sid}/'
+    session_dir = f'static/temp/{sid}/'
     shutil.rmtree(session_dir, ignore_errors=True)
     session_record.remove(sid)
 
