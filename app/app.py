@@ -7,6 +7,7 @@ import os
 import uuid
 import threading
 import shutil
+from options import set_user_opts
 
 app = Flask(__name__)
 socketio = SocketIO(app)
@@ -19,11 +20,9 @@ session_record = set()
 # TODO: Restore client state on page refresh
 # TODO: Check for invalid data
 # TODO: Add logging
-# TODO: Add Sponsorblock
-# TODO: Add download archive check
 
 @socketio.on('submit')
-def submit(url):
+def submit(url, user_opts):
     downloads = []
 
     def yt_dlp_log(msg):
@@ -53,22 +52,19 @@ def submit(url):
     session_dir = f'static/temp/{sid}/'
     Path(session_dir).mkdir(parents=True, exist_ok=True)
 
-    # TODO: Handle options in another file
+    # Default options
     ydl_opts = {
-        'outtmpl': session_dir + '%(uploader)s - %(title)s.%(ext)s',
+        'outtmpl': {
+            'default': session_dir + '%(uploader)s - %(title)s.%(ext)s'
+        },
         'windowsfilenames': True,
+        'download_archive': session_dir + 'archive.txt',
         'format': 'mp3/bestaudio/best',
         'postprocessors': [
             {
                 'key': 'FFmpegExtractAudio',
-                'preferredcodec': 'mp3',
-            },
-            {
-                'key': 'FFmpegMetadata',
-                'add_chapters': True,
-                'add_infojson': 'if_exists',
-                'add_metadata': True,
-            },
+                'preferredcodec': 'mp3'
+            }
         ],
         'logger': WebLogger(),
         'color': {
@@ -77,6 +73,8 @@ def submit(url):
         },
         'progress_hooks': [filename_hook]
     }
+
+    set_user_opts(ydl_opts, user_opts)
 
     try:
         URLS = [url]

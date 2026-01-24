@@ -65,10 +65,21 @@ function updateSponsorBlockCheckbox(checkbox) {
 }
 
 const form = document.getElementById('url-submit');
-const textinput = document.getElementById('yt-url');
 form.addEventListener('submit', (event) => {
   event.preventDefault();
-  socket.emit('submit', textinput.value);
+
+  const textinput = document.getElementById('yt-url');
+  const metadata = document.getElementById('metadata');
+  const thumbnail = document.getElementById('thumbnail');
+  const sponsorblock = document.getElementById('sponsorblock');
+
+  const user_opts = {
+    metadata: metadata.checked,
+    thumbnail: thumbnail.checked,
+    sponsorblock: sponsorblock.checked
+  };
+
+  socket.emit('submit', textinput.value, user_opts);
   const submit_button = document.getElementById('submit-button');
   submit_button.disabled = true;
 });
