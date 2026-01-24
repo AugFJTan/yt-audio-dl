@@ -2,12 +2,30 @@ from flask import Flask, render_template, request, session, jsonify, copy_curren
 from flask_socketio import SocketIO, emit
 from dotenv import load_dotenv
 from pathlib import Path
+from options import set_user_opts
 import yt_dlp
 import os
 import uuid
 import threading
 import shutil
-from options import set_user_opts
+import logging
+import logging.handlers
+import datetime
+
+
+LOG_FORMAT = '%(asctime)s - %(levelname)s - %(message)s'
+LOG_LEVEL = logging.INFO
+
+Path('logs').mkdir(exist_ok=True)
+
+formatter = logging.Formatter(LOG_FORMAT)
+
+handler = logging.handlers.TimedRotatingFileHandler('logs/yt-audio-dl.log', when='midnight', backupCount=7)
+handler.setFormatter(formatter)
+
+logger = logging.getLogger()
+logger.addHandler(handler)
+logger.setLevel(LOG_LEVEL)
 
 app = Flask(__name__)
 socketio = SocketIO(app)
@@ -19,7 +37,6 @@ session_record = set()
 
 # TODO: Restore client state on page refresh
 # TODO: Check for invalid data
-# TODO: Add logging
 
 @socketio.on('submit')
 def submit(url, user_opts):
@@ -30,12 +47,15 @@ def submit(url, user_opts):
 
     class WebLogger:
         def debug(self, msg):
+            logger.info('%s - yt-dlp - %s', session['id'], msg)
             yt_dlp_log(msg)
 
         def warning(self, msg):
+            logger.warning('%s - yt-dlp - %s', session['id'], msg)
             yt_dlp_log(msg)
 
         def error(self, msg):
+            logger.error('%s - yt-dlp - %s', session['id'], msg)
             yt_dlp_log(msg)
 
     def filename_hook(d):
@@ -46,6 +66,7 @@ def submit(url, user_opts):
                 'filename': download_path.name
             }
             downloads.append(download)
+            logger.info('%s - system - Added %s to download list', session['id'], download_path.name)
 
     sid = session['id']
 
@@ -91,34 +112,37 @@ def submit(url, user_opts):
         t = threading.Timer(15 * 60, delete_session_files, [sid])
         t.start()
 
+        delete_files_time = datetime.datetime.now() + datetime.timedelta(minutes=15)
+        logger.info('%s - system - Scheduled to delete files at %s', sid, delete_files_time.strftime('%Y-%m-%d %H:%M:%S'))
+
 
 def delete_session_files(sid):
-    print(f'Deleting files from session {sid}')
     session_dir = f'static/temp/{sid}/'
     shutil.rmtree(session_dir, ignore_errors=True)
     session_record.remove(sid)
+    logger.info('system - Deleted files from session %s', sid)
 
 
 @socketio.on('get_session_id_resp')
 def client_get_session_id(sid):
     if not sid:
         sid = uuid.uuid4().hex
-        print(f'Creating new session {sid}')
+        logger.info('system - Creating new session %s', sid)
     else:
-        print(f'Got existing session {sid}')
+        logger.info('system - Got existing session %s', sid)
     session['id'] = sid
     emit('set_session_id', sid)
 
 
 @socketio.on('connect')
 def client_connect():
-    print('Connect event')
+    logger.info('system - Client connected')
     emit('get_session_id')
 
 
 @socketio.on('disconnect')
 def client_disconnect(reason):
-    print('Client disconnected, reason:', reason)
+    logger.info('%s - system - Client disconnected: %s', session['id'], reason)
 
 
 @app.route('/')
